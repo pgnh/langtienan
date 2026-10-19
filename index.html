@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#9A422D" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Làng Tiền An" />
+    <title>Làng Tiền An - Game Nông Trại Mộc Bản Đông Hồ</title>
+    <!-- Google Fonts: Noto Serif Vietnamese, Playfair Display & Cinzel Decorative -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --color-giay-diep: #D9C28D;
+        --color-than-den: #1A1A1A;
+        --color-do-son: #9A422D;
+        --color-hoa-hoe: #E5A823;
+        --color-xanh-cham: #2A4B6E;
+        --color-xanh-reu: #4E6840;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #120e0a;
+        font-family: 'Noto Serif', serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Background paper texture effect */
+      #app-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        max-width: 480px;
+        max-height: 920px;
+        aspect-ratio: 9 / 16;
+        background-color: var(--color-giay-diep);
+        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 0 3px rgba(154, 66, 45, 0.4);
+        border-radius: 20px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      @media (max-width: 540px) {
+        #app-container {
+          max-width: 100vw;
+          max-height: 100vh;
+          border-radius: 0;
+          box-shadow: none;
+          aspect-ratio: auto;
+        }
+      }
+
+      #game-canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Noise overlay simulating natural shell paper glitter (giấy điệp xà cừ) */
+      .diep-glitter-overlay {
+        pointer-events: none;
+        position: absolute;
+        inset: 0;
+        opacity: 0.12;
+        background-image: radial-gradient(#fff 1px, transparent 1px), radial-gradient(#ffe4b5 1px, transparent 1px);
+        background-size: 24px 24px;
+        background-position: 0 0, 12px 12px;
+        z-index: 999;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app-container">
+      <div id="game-canvas"></div>
+      <div class="diep-glitter-overlay"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

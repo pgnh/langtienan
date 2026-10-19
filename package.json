@@ -1,0 +1,23 @@
+{
+  "name": "langtienan",
+  "version": "1.0.0",
+  "description": "Làng Tiền An - Game Nông Trại Cuộn Dọc Mộc Bản Đông Hồ (PWA)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "canvas-confetti": "^1.9.4",
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^22.13.9",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}
