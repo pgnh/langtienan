@@ -28,21 +28,15 @@ export class BottomDock extends Phaser.GameObjects.Container {
     const dockHeight = 135;
 
     // =========================================================
-    // 1. Khung nền đế gỗ phong cách mộc bản Đông Hồ
+    // 1. Khung nền đế gỗ phong cách mộc bản Đông Hồ độc lập
     // =========================================================
-    if (this.scene.textures.exists(ASSET_KEYS.BOTTOM_DOCK_CLEAN)) {
-      const dockImg = this.scene.add.image(dockWidth / 2, dockHeight / 2, ASSET_KEYS.BOTTOM_DOCK_CLEAN)
-        .setDisplaySize(dockWidth, dockHeight);
-      this.add(dockImg);
-    } else {
-      const dockBg = this.scene.add.rectangle(dockWidth / 2, dockHeight / 2, dockWidth, dockHeight, DongHoHex.giayDiepDark, 0.98);
-      dockBg.setStrokeStyle(3, DongHoHex.thanDen);
-      this.add(dockBg);
+    const dockBg = this.scene.add.rectangle(dockWidth / 2, dockHeight / 2, dockWidth, dockHeight, DongHoHex.giayDiepDark, 0.98);
+    dockBg.setStrokeStyle(3, DongHoHex.thanDen);
+    this.add(dockBg);
 
-      // Đường viền trang trí son đỏ phía trên
-      const topTrim = this.scene.add.rectangle(dockWidth / 2, 4, dockWidth, 4, DongHoHex.doSon);
-      this.add(topTrim);
-    }
+    // Đường viền trang trí son đỏ phía trên nẹp gỗ
+    const topTrim = this.scene.add.rectangle(dockWidth / 2, 4, dockWidth, 4, DongHoHex.doSon);
+    this.add(topTrim);
 
     // =========================================================
     // 2. Cấu hình 4 nút chức năng dạng mộc bản đồng đều

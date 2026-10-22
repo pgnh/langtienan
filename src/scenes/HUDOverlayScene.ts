@@ -33,7 +33,7 @@ export class HUDOverlayScene extends Phaser.Scene {
 
   create() {
     // 1. Thanh trạng thái trên cùng
-    this.topBar = new TopStatusBar(this);
+    this.topBar = new TopStatusBar(this).setDepth(100);
 
     // 2. Ngăn kéo Tiệm Tạp Hóa
     this.storeDrawer = new StoreDrawer(this, (cropId: string) => {
@@ -92,7 +92,7 @@ export class HUDOverlayScene extends Phaser.Scene {
     // 8. Thanh Dock 4 nút điều hướng ở đáy
     this.bottomDock = new BottomDock(this, (tabId: NavTabId) => {
       this.handleNavTabClick(tabId);
-    });
+    }).setDepth(100);
 
     // 9. Hộp thông báo nhanh (Toast Notification)
     this.createToastBanner();

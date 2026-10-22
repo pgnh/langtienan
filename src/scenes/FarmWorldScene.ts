@@ -156,26 +156,6 @@ export class FarmWorldScene extends Phaser.Scene {
         repeat: -1,
         ease: 'Sine.easeInOut'
       });
-
-      // Bè tre bến nước trang trí phía rìa trái
-      if (this.textures.exists(ASSET_KEYS.SLOT_WATER)) {
-        const raft = this.add.image(90, tier1.yStart + 220, ASSET_KEYS.SLOT_WATER)
-          .setDisplaySize(110, 110)
-          .setAlpha(0.85)
-          .setRotation(-0.1);
-        waterLayer.add(raft);
-
-        // Hiệu ứng bè bập bềnh theo sóng
-        this.tweens.add({
-          targets: raft,
-          y: '+=8',
-          rotation: 0.08,
-          duration: 2000,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut'
-        });
-      }
     }
 
     // -------------------------------------------------------------
@@ -474,11 +454,16 @@ export class FarmWorldScene extends Phaser.Scene {
 
   /**
    * Dựng các ô canh tác (4 ô mỗi tầng) sử dụng FarmSlotObject
+   * Chỉ hiển thị các ô canh tác ở các tầng đã được khai hoang mở khóa!
    */
   private renderSlots() {
+    const unlockedMax = this.profile?.unlocked_floors || 1;
+
     this.slots.forEach((slot) => {
       const tier = TIERS_DATA[slot.floor_id];
       if (!tier) return;
+
+      const isUnlocked = slot.floor_id <= unlockedMax;
 
       // Tính tọa độ ô: 2 hàng x 2 cột
       const row = Math.floor(slot.slot_index / 2);
@@ -506,6 +491,9 @@ export class FarmWorldScene extends Phaser.Scene {
         // Cập nhật trạng thái ô
         slotObject.updateState(slot);
       }
+
+      // Chỉ hiển thị ô canh tác nếu tầng này đã được mở khóa
+      slotObject.setVisible(isUnlocked);
     });
   }
 

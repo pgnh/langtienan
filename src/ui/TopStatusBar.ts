@@ -144,8 +144,8 @@ export class TopStatusBar extends Phaser.GameObjects.Container {
       : ASSET_KEYS.TITLE_BOARD;
 
     if (this.scene.textures.exists(titleKey)) {
-      const titleBoard = this.scene.add.image(480, 78, titleKey)
-        .setDisplaySize(310, 146);
+      const titleBoard = this.scene.add.image(475, 78, titleKey)
+        .setDisplaySize(270, 84);
       this.add(titleBoard);
     }
 
