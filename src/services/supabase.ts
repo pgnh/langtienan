@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Profile, FarmSlotRow, PlantCropResult, HarvestCropResult } from '../types/database';
 import { CROPS_DATA } from '../constants/crops';
 import { TIERS_DATA } from '../constants/tiers';
+import { WoodcutService } from './woodcutService';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -27,6 +28,7 @@ const STORAGE_KEY = 'langtienan_save_v1';
 interface LocalGameState {
   profile: Profile;
   slots: FarmSlotRow[];
+  inventory: Record<string, number>;
 }
 
 function getInitialState(): LocalGameState {
@@ -56,20 +58,31 @@ function getInitialState(): LocalGameState {
     }
   }
 
+  // Khởi tạo kho nông sản mặc định cho người chơi
+  const defaultInventory: Record<string, number> = {
+    beo_hoa_dau: 6,
+    chuoi_ngu: 4,
+    ca_chep: 1
+  };
+
   // Tải từ LocalStorage nếu có
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.profile && Array.isArray(parsed.slots)) {
-        return parsed;
+        return {
+          profile: parsed.profile,
+          slots: parsed.slots,
+          inventory: parsed.inventory || defaultInventory
+        };
       }
     }
   } catch (e) {
     console.warn('Lỗi đọc LocalStorage:', e);
   }
 
-  return { profile: defaultProfile, slots: defaultSlots };
+  return { profile: defaultProfile, slots: defaultSlots, inventory: defaultInventory };
 }
 
 let localState: LocalGameState = getInitialState();
@@ -162,9 +175,12 @@ export const GameService = {
     // Khấu trừ tài nguyên
     localState.profile.gold_coins -= crop.costGold;
 
-    // Tính thời gian thu hoạch theo Server Time
+    // Tính thời gian thu hoạch theo Server Time kèm Passive Buff mộc bản (nếu có)
+    const speedMult = WoodcutService.getFloorSpeedMultiplier(slot.floor_id);
+    const effectiveDurationSec = Math.max(Math.round(crop.growDurationSec * speedMult), 5);
+
     const now = Date.now();
-    const harvestAtMs = now + crop.growDurationSec * 1000;
+    const harvestAtMs = now + effectiveDurationSec * 1000;
     const harvestAtIso = new Date(harvestAtMs).toISOString();
 
     slot.item_type = itemType;
@@ -214,8 +230,9 @@ export const GameService = {
       throw new Error('Sản phẩm chưa chín tới! Vui lòng kiên nhẫn chờ thêm.');
     }
 
-    // Tính phần thưởng
-    const rewardGold = crop.sellPriceGold;
+    // Tính phần thưởng kèm Passive Buff mộc bản tăng sản lượng/giá bán
+    const yieldMult = WoodcutService.getFloorYieldMultiplier(slot.floor_id);
+    const rewardGold = Math.round(crop.sellPriceGold * yieldMult);
     const rewardFame = crop.rewardFame;
     const rewardPaper = crop.rewardPaper || 0;
 
@@ -223,8 +240,12 @@ export const GameService = {
     localState.profile.fame_exp += rewardFame;
     localState.profile.paper_currency += rewardPaper;
 
-    // Reset ô đất
+    // Cập nhật kho nông sản
     const harvestedItem = slot.item_type;
+    const yieldQty = crop.yieldQty || 1;
+    localState.inventory[harvestedItem] = (localState.inventory[harvestedItem] || 0) + yieldQty;
+
+    // Reset ô đất
     slot.item_type = null;
     slot.planted_at = null;
     slot.harvest_at = null;
@@ -241,6 +262,66 @@ export const GameService = {
       current_gold: localState.profile.gold_coins,
       current_fame: localState.profile.fame_exp,
       current_paper: localState.profile.paper_currency
+    };
+  },
+
+  /**
+   * Lấy kho nông sản thu hoạch
+   */
+  async getInventory(): Promise<Record<string, number>> {
+    return { ...localState.inventory };
+  },
+
+  /**
+   * Bán nông sản trong kho đồ lấy Vàng Nén
+   */
+  async sellCrop(cropId: string, quantity: number = 1): Promise<{ success: boolean; earnedGold: number; remainingQty: number; currentGold: number }> {
+    const crop = CROPS_DATA[cropId];
+    if (!crop) throw new Error('Sản phẩm không hợp lệ!');
+
+    const currentQty = localState.inventory[cropId] || 0;
+    if (currentQty < quantity) {
+      throw new Error(`Kho không đủ hàng! Hiện có ${currentQty} ${crop.yieldUnit}.`);
+    }
+
+    const earnedGold = crop.sellPriceGold * quantity;
+    localState.inventory[cropId] = currentQty - quantity;
+    localState.profile.gold_coins += earnedGold;
+
+    saveState();
+
+    return {
+      success: true,
+      earnedGold,
+      remainingQty: localState.inventory[cropId],
+      currentGold: localState.profile.gold_coins
+    };
+  },
+
+  /**
+   * Hoàn thành đơn thu mua của dân làng (Thị Nở, Chí Phèo, Bá Kiến)
+   */
+  async fulfillOrder(orderId: string, costItems: { cropId: string; quantity: number }[], rewardGold: number, rewardFame: number): Promise<{ success: boolean; message: string }> {
+    for (const item of costItems) {
+      const stock = localState.inventory[item.cropId] || 0;
+      if (stock < item.quantity) {
+        const c = CROPS_DATA[item.cropId];
+        throw new Error(`Thiếu ${c ? c.name : item.cropId}! Cần ${item.quantity}.`);
+      }
+    }
+
+    for (const item of costItems) {
+      localState.inventory[item.cropId] -= item.quantity;
+    }
+
+    localState.profile.gold_coins += rewardGold;
+    localState.profile.fame_exp += rewardFame;
+
+    saveState();
+
+    return {
+      success: true,
+      message: 'Giao hàng thành công, nhận trọn vẹn tiền thưởng!'
     };
   },
 

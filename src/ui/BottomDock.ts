@@ -1,14 +1,22 @@
 import Phaser from 'phaser';
 import { DongHoColors, DongHoHex } from '../config/theme';
-import { NavTabId, NavButtonConfig } from '../types/hud';
+import { NavTabId } from '../types/hud';
+import { ASSET_KEYS } from '../constants/assets';
 import { sound } from '../services/soundService';
+
+interface DockButtonConfig {
+  id: NavTabId;
+  label: string;
+  assetKey: string;
+}
 
 export class BottomDock extends Phaser.GameObjects.Container {
   private buttons: Map<NavTabId, Phaser.GameObjects.Container> = new Map();
   private onTabClick: (tabId: NavTabId) => void;
 
   constructor(scene: Phaser.Scene, onTabClick: (tabId: NavTabId) => void) {
-    super(scene, 0, 1180);
+    // Đặt ở sát đáy màn hình chuẩn 720 x 1280 (y = 1145, chiều cao dock 135px phủ xuống 1280)
+    super(scene, 0, 1145);
     this.onTabClick = onTabClick;
 
     this.createDock();
@@ -17,67 +25,109 @@ export class BottomDock extends Phaser.GameObjects.Container {
 
   private createDock() {
     const dockWidth = 720;
-    const dockHeight = 100;
+    const dockHeight = 135;
 
-    // Nền mộc bản đế dưới cùng
-    const bg = this.scene.add.rectangle(dockWidth / 2, dockHeight / 2, dockWidth - 12, dockHeight, DongHoHex.giayDiep, 0.98);
-    bg.setStrokeStyle(3, DongHoHex.thanDen);
-    this.add(bg);
+    // =========================================================
+    // 1. Khung nền đế gỗ phong cách mộc bản Đông Hồ
+    // =========================================================
+    if (this.scene.textures.exists(ASSET_KEYS.BOTTOM_DOCK_CLEAN)) {
+      const dockImg = this.scene.add.image(dockWidth / 2, dockHeight / 2, ASSET_KEYS.BOTTOM_DOCK_CLEAN)
+        .setDisplaySize(dockWidth, dockHeight);
+      this.add(dockImg);
+    } else {
+      const dockBg = this.scene.add.rectangle(dockWidth / 2, dockHeight / 2, dockWidth, dockHeight, DongHoHex.giayDiepDark, 0.98);
+      dockBg.setStrokeStyle(3, DongHoHex.thanDen);
+      this.add(dockBg);
 
-    const navConfigs: NavButtonConfig[] = [
-      { id: 'map', label: 'BẢN ĐỒ', subLabel: '5 Tầng', icon: '🗺️' },
-      { id: 'store', label: 'TẠP HÓA', subLabel: 'Gieo & Bán', icon: '🛒' },
-      { id: 'woodblock', label: 'KHẮC GỖ', subLabel: 'Mộc Bản', icon: '🪵' },
-      { id: 'achievements', label: 'SỔ ĐINH', subLabel: 'Thành Tích', icon: '📜' }
+      // Đường viền trang trí son đỏ phía trên
+      const topTrim = this.scene.add.rectangle(dockWidth / 2, 4, dockWidth, 4, DongHoHex.doSon);
+      this.add(topTrim);
+    }
+
+    // =========================================================
+    // 2. Cấu hình 4 nút chức năng dạng mộc bản đồng đều
+    // =========================================================
+    const navConfigs: DockButtonConfig[] = [
+      { id: 'map', label: 'Bản Đồ', assetKey: ASSET_KEYS.BTN_MAP },
+      { id: 'store', label: 'Tiệm Tạp Hóa', assetKey: ASSET_KEYS.BTN_SHOP },
+      { id: 'woodblock', label: 'Khắc Gỗ', assetKey: ASSET_KEYS.BTN_WOODCUT },
+      { id: 'achievements', label: 'Thành Tích', assetKey: ASSET_KEYS.BTN_ACHIEVEMENT }
     ];
 
-    const btnWidth = 155;
-    const startX = 45 + btnWidth / 2;
-    const gap = 162;
+    const btnCount = navConfigs.length;
+    const spacing = dockWidth / (btnCount + 1); // 720 / 5 = 144
 
     navConfigs.forEach((cfg, idx) => {
-      const btnX = startX + idx * gap;
-      const btnY = dockHeight / 2;
+      const btnX = spacing * (idx + 1);
+      const btnY = dockHeight / 2 + 2;
 
       const btnContainer = this.scene.add.container(btnX, btnY);
 
-      // Nền nút bấm
-      const btnBg = this.scene.add.rectangle(0, 0, btnWidth, 76, DongHoHex.giayDiepDark);
-      btnBg.setStrokeStyle(2.5, DongHoHex.thanDen);
-      btnBg.setInteractive({ useHandCursor: true });
+      // Icon nút mộc bản (dùng asset ảnh thực tế)
+      let btnImage: Phaser.GameObjects.GameObject;
 
-      // Biểu tượng icon
-      const iconText = this.scene.add.text(0, -16, cfg.icon, {
-        fontSize: '24px'
-      }).setOrigin(0.5);
+      if (this.scene.textures.exists(cfg.assetKey)) {
+        const sprite = this.scene.add.image(0, -12, cfg.assetKey)
+          .setDisplaySize(62, 62)
+          .setInteractive({ useHandCursor: true });
+        btnContainer.add(sprite);
+        btnImage = sprite;
+      } else {
+        // Fallback ô vuông mộc bản
+        const fallbackBox = this.scene.add.rectangle(0, -12, 58, 58, DongHoHex.giayDiepDark)
+          .setStrokeStyle(2, DongHoHex.thanDen)
+          .setInteractive({ useHandCursor: true });
+        const fallbackText = this.scene.add.text(0, -12, '📦', { fontSize: '24px' }).setOrigin(0.5);
+        btnContainer.add([fallbackBox, fallbackText]);
+        btnImage = fallbackBox;
+      }
 
-      // Tiêu đề chính
-      const labelText = this.scene.add.text(0, 12, cfg.label, {
+      // Nhãn tiêu đề bên dưới nút
+      const labelText = this.scene.add.text(0, 28, cfg.label, {
         fontFamily: "'Playfair Display', serif",
         fontSize: '13px',
         color: DongHoColors.thanDen,
         fontStyle: 'bold'
       }).setOrigin(0.5);
 
-      // Phụ đề
-      const subText = this.scene.add.text(0, 26, cfg.subLabel, {
-        fontFamily: "'Noto Serif', serif",
-        fontSize: '10px',
-        color: DongHoColors.doSonDark
-      }).setOrigin(0.5);
+      btnContainer.add(labelText);
 
-      btnContainer.add([btnBg, iconText, labelText, subText]);
-
-      // Hiệu ứng tương tác chạm
-      btnBg.on('pointerdown', () => {
+      // =========================================================
+      // 3. Hiệu ứng Button Bounce Tween:
+      // Co nhỏ 0.95 khi pointerdown và nảy lại khi pointerup
+      // =========================================================
+      btnImage.on('pointerdown', () => {
         sound.playBambooClick();
         this.scene.tweens.add({
           targets: btnContainer,
-          scaleX: 0.94,
-          scaleY: 0.94,
-          duration: 80,
-          yoyo: true,
-          onComplete: () => this.onTabClick(cfg.id)
+          scaleX: 0.95,
+          scaleY: 0.95,
+          duration: 70,
+          ease: 'Sine.easeInOut'
+        });
+      });
+
+      btnImage.on('pointerup', () => {
+        this.scene.tweens.add({
+          targets: btnContainer,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 120,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            this.onTabClick(cfg.id);
+          }
+        });
+      });
+
+      btnImage.on('pointerout', () => {
+        // Trả lại kích thước chuẩn nếu kéo ngón tay ra ngoài nút
+        this.scene.tweens.add({
+          targets: btnContainer,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 100,
+          ease: 'Sine.easeOut'
         });
       });
 
@@ -86,15 +136,27 @@ export class BottomDock extends Phaser.GameObjects.Container {
     });
   }
 
+  /**
+   * Tạo hiệu ứng sáng nhẹ hoặc đổi màu khi tab được chọn
+   */
   public highlightTab(tabId: NavTabId | null) {
     this.buttons.forEach((btn, id) => {
-      const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
-      if (id === tabId) {
-        bg.setFillStyle(DongHoHex.doSon);
-        bg.setStrokeStyle(3, DongHoHex.vangHoaHoe);
+      const isSelected = id === tabId;
+      btn.setAlpha(isSelected ? 1 : 0.85);
+      if (isSelected) {
+        this.scene.tweens.add({
+          targets: btn,
+          y: 58,
+          duration: 150,
+          ease: 'Sine.easeOut'
+        });
       } else {
-        bg.setFillStyle(DongHoHex.giayDiepDark);
-        bg.setStrokeStyle(2.5, DongHoHex.thanDen);
+        this.scene.tweens.add({
+          targets: btn,
+          y: 62,
+          duration: 150,
+          ease: 'Sine.easeOut'
+        });
       }
     });
   }

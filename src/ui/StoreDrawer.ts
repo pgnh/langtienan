@@ -1,19 +1,22 @@
 import Phaser from 'phaser';
 import { DongHoColors, DongHoHex } from '../config/theme';
-import { CROPS_LIST } from '../constants/crops';
+import { CROPS_LIST, CROPS_DATA } from '../constants/crops';
+import { GameService } from '../services/supabase';
 import { sound } from '../services/soundService';
 
 export class StoreDrawer extends Phaser.GameObjects.Container {
   public isOpen = false;
   private contentContainer!: Phaser.GameObjects.Container;
-  private activeTab: 'seeds' | 'orders' = 'seeds';
-  private tabSeedsBtn!: Phaser.GameObjects.Container;
+  private activeTab: 'buy' | 'sell' | 'orders' = 'buy';
+
+  private tabBuyBtn!: Phaser.GameObjects.Container;
+  private tabSellBtn!: Phaser.GameObjects.Container;
   private tabOrdersBtn!: Phaser.GameObjects.Container;
   private onSelectCrop: (cropId: string) => void;
 
   private drawerWidth = 700;
-  private drawerHeight = 840;
-  private openY = 440;
+  private drawerHeight = 880;
+  private openY = 380;
   private closedY = 1320;
 
   constructor(scene: Phaser.Scene, onSelectCrop: (cropId: string) => void) {
@@ -25,32 +28,54 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
   }
 
   private createDrawer() {
-    // 1. Lớp phủ nền mộc bản Đông Hồ
-    const bg = this.scene.add.rectangle(this.drawerWidth / 2, this.drawerHeight / 2, this.drawerWidth, this.drawerHeight, DongHoHex.giayDiep, 0.98);
+    // 1. Lớp phủ nền mộc bản Đông Hồ cuộn giấy
+    const bg = this.scene.add.rectangle(
+      this.drawerWidth / 2,
+      this.drawerHeight / 2,
+      this.drawerWidth,
+      this.drawerHeight,
+      DongHoHex.giayDiep,
+      0.98
+    );
     bg.setStrokeStyle(4, DongHoHex.thanDen);
     this.add(bg);
 
     // 2. Viền hoa văn triện son trang trí
-    const innerBorder = this.scene.add.rectangle(this.drawerWidth / 2, this.drawerHeight / 2, this.drawerWidth - 20, this.drawerHeight - 20);
+    const innerBorder = this.scene.add.rectangle(
+      this.drawerWidth / 2,
+      this.drawerHeight / 2,
+      this.drawerWidth - 18,
+      this.drawerHeight - 18
+    );
     innerBorder.setStrokeStyle(1.5, DongHoHex.doSon);
     this.add(innerBorder);
 
-    // 3. Tiêu đề Tiệm Tạp Hóa
-    const headerBg = this.scene.add.rectangle(this.drawerWidth / 2, 45, this.drawerWidth - 40, 56, DongHoHex.doSon);
+    // 3. Tiêu đề Tiệm Tạp Hóa phong cách bảng gỗ
+    const headerBg = this.scene.add.rectangle(
+      this.drawerWidth / 2,
+      45,
+      this.drawerWidth - 36,
+      56,
+      DongHoHex.doSon
+    );
     headerBg.setStrokeStyle(2, DongHoHex.vangHoaHoe);
 
-    const titleText = this.scene.add.text(this.drawerWidth / 2 - 40, 45, 'TIỆM TẠP HÓA LÀNG TIỀN AN', {
-      fontFamily: "'Playfair Display', serif",
-      fontSize: '20px',
-      color: DongHoColors.trangXac,
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
+    const titleText = this.scene.add.text(
+      this.drawerWidth / 2 - 25,
+      45,
+      'TIỆM TẠP HÓA & GIAO THƯƠNG LÀNG',
+      {
+        fontFamily: "'Playfair Display', serif",
+        fontSize: '18px',
+        color: DongHoColors.trangXac,
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
 
-    // Dấu triện son nhỏ
-    const sealText = this.scene.add.text(80, 45, '🛒', { fontSize: '24px' }).setOrigin(0.5);
+    const sealText = this.scene.add.text(50, 45, '🏪', { fontSize: '26px' }).setOrigin(0.5);
 
-    // Nút đóng ngăn kéo
-    const closeBtn = this.scene.add.container(this.drawerWidth - 70, 45);
+    // Nút đóng ngăn kéo '✖'
+    const closeBtn = this.scene.add.container(this.drawerWidth - 55, 45);
     const closeBg = this.scene.add.circle(0, 0, 18, DongHoHex.thanDen);
     closeBg.setStrokeStyle(2, DongHoHex.vangHoaHoe);
     closeBg.setInteractive({ useHandCursor: true });
@@ -69,49 +94,87 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
 
     this.add([headerBg, sealText, titleText, closeBtn]);
 
-    // 4. Thanh 2 Tab: Hạt Giống & Giao Thương
+    // 4. Thanh 3 Tab: Mua Giống - Bán Nông Sản - Đơn Thu Mua
     this.createTabs();
 
     // 5. Vùng nội dung danh sách
-    this.contentContainer = this.scene.add.container(0, 150);
+    this.contentContainer = this.scene.add.container(0, 145);
     this.add(this.contentContainer);
+
+    // 6. Nút Đỏ Mộc Bản "ĐÓNG GIAO DỊCH" ở chân bảng gỗ
+    const footerBtn = this.scene.add.container(this.drawerWidth / 2, this.drawerHeight - 40);
+    const footerBg = this.scene.add.rectangle(0, 0, 240, 42, DongHoHex.doSon);
+    footerBg.setStrokeStyle(2, DongHoHex.thanDen);
+    footerBg.setInteractive({ useHandCursor: true });
+    const footerText = this.scene.add.text(0, 0, 'ĐÓNG GIAO DỊCH', {
+      fontFamily: "'Playfair Display', serif",
+      fontSize: '13px',
+      color: DongHoColors.trangXac,
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    footerBtn.add([footerBg, footerText]);
+    footerBg.on('pointerdown', () => {
+      sound.playBambooClick();
+      this.close();
+    });
+    this.add(footerBtn);
 
     this.renderActiveTabContent();
   }
 
   private createTabs() {
-    const tabY = 108;
-    const tabWidth = 320;
-    const tabHeight = 44;
+    const tabY = 105;
+    const tabWidth = 210;
+    const tabHeight = 42;
 
-    // Tab 1: Hạt Giống & Phôi Nung
-    this.tabSeedsBtn = this.scene.add.container(this.drawerWidth / 4 + 10, tabY);
-    const seedsBg = this.scene.add.rectangle(0, 0, tabWidth, tabHeight, DongHoHex.doSon);
-    seedsBg.setStrokeStyle(2, DongHoHex.thanDen);
-    seedsBg.setInteractive({ useHandCursor: true });
-    const seedsText = this.scene.add.text(0, 0, '🌱 HẠT GIỐNG & PHÔI', {
+    // Tab 1: Mua Hạt Giống
+    this.tabBuyBtn = this.scene.add.container(125, tabY);
+    const buyBg = this.scene.add.rectangle(0, 0, tabWidth, tabHeight, DongHoHex.doSon);
+    buyBg.setStrokeStyle(2, DongHoHex.thanDen);
+    buyBg.setInteractive({ useHandCursor: true });
+    const buyText = this.scene.add.text(0, 0, '🌱 MUA GIỐNG', {
       fontFamily: "'Playfair Display', serif",
-      fontSize: '14px',
+      fontSize: '13px',
       color: DongHoColors.trangXac,
       fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.tabSeedsBtn.add([seedsBg, seedsText]);
+    this.tabBuyBtn.add([buyBg, buyText]);
 
-    seedsBg.on('pointerdown', () => {
+    buyBg.on('pointerdown', () => {
       sound.playBambooClick();
-      this.activeTab = 'seeds';
+      this.activeTab = 'buy';
       this.updateTabStyles();
       this.renderActiveTabContent();
     });
 
-    // Tab 2: Ký Gửi & Bán Nông Sản
-    this.tabOrdersBtn = this.scene.add.container((this.drawerWidth / 4) * 3 - 10, tabY);
+    // Tab 2: Bán Nông Sản (Kho Đồ)
+    this.tabSellBtn = this.scene.add.container(350, tabY);
+    const sellBg = this.scene.add.rectangle(0, 0, tabWidth, tabHeight, DongHoHex.giayDiepDark);
+    sellBg.setStrokeStyle(2, DongHoHex.thanDen);
+    sellBg.setInteractive({ useHandCursor: true });
+    const sellText = this.scene.add.text(0, 0, '🧺 BÁN NÔNG SẢN', {
+      fontFamily: "'Playfair Display', serif",
+      fontSize: '13px',
+      color: DongHoColors.thanDen,
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.tabSellBtn.add([sellBg, sellText]);
+
+    sellBg.on('pointerdown', () => {
+      sound.playBambooClick();
+      this.activeTab = 'sell';
+      this.updateTabStyles();
+      this.renderActiveTabContent();
+    });
+
+    // Tab 3: Đơn Thu Mua Làng (Thị Nở & Chí Phèo)
+    this.tabOrdersBtn = this.scene.add.container(575, tabY);
     const ordersBg = this.scene.add.rectangle(0, 0, tabWidth, tabHeight, DongHoHex.giayDiepDark);
     ordersBg.setStrokeStyle(2, DongHoHex.thanDen);
     ordersBg.setInteractive({ useHandCursor: true });
-    const ordersText = this.scene.add.text(0, 0, '📜 ĐƠN THU MUA LÀNG', {
+    const ordersText = this.scene.add.text(0, 0, '📜 HỢP ĐỒNG', {
       fontFamily: "'Playfair Display', serif",
-      fontSize: '14px',
+      fontSize: '13px',
       color: DongHoColors.thanDen,
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -124,95 +187,90 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
       this.renderActiveTabContent();
     });
 
-    this.add([this.tabSeedsBtn, this.tabOrdersBtn]);
+    this.add([this.tabBuyBtn, this.tabSellBtn, this.tabOrdersBtn]);
   }
 
   private updateTabStyles() {
-    const seedsBg = this.tabSeedsBtn.getAt(0) as Phaser.GameObjects.Rectangle;
-    const seedsText = this.tabSeedsBtn.getAt(1) as Phaser.GameObjects.Text;
-    const ordersBg = this.tabOrdersBtn.getAt(0) as Phaser.GameObjects.Rectangle;
-    const ordersText = this.tabOrdersBtn.getAt(1) as Phaser.GameObjects.Text;
+    const tabs = [
+      { key: 'buy', container: this.tabBuyBtn },
+      { key: 'sell', container: this.tabSellBtn },
+      { key: 'orders', container: this.tabOrdersBtn }
+    ];
 
-    if (this.activeTab === 'seeds') {
-      seedsBg.setFillStyle(DongHoHex.doSon);
-      seedsText.setColor(DongHoColors.trangXac);
-      ordersBg.setFillStyle(DongHoHex.giayDiepDark);
-      ordersText.setColor(DongHoColors.thanDen);
-    } else {
-      seedsBg.setFillStyle(DongHoHex.giayDiepDark);
-      seedsText.setColor(DongHoColors.thanDen);
-      ordersBg.setFillStyle(DongHoHex.doSon);
-      ordersText.setColor(DongHoColors.trangXac);
-    }
+    tabs.forEach((tab) => {
+      const bg = tab.container.getAt(0) as Phaser.GameObjects.Rectangle;
+      const text = tab.container.getAt(1) as Phaser.GameObjects.Text;
+      const isActive = this.activeTab === tab.key;
+
+      bg.setFillStyle(isActive ? DongHoHex.doSon : DongHoHex.giayDiepDark);
+      text.setColor(isActive ? DongHoColors.trangXac : DongHoColors.thanDen);
+    });
   }
 
-  private renderActiveTabContent() {
+  private async renderActiveTabContent() {
     this.contentContainer.removeAll(true);
 
-    if (this.activeTab === 'seeds') {
-      this.renderSeedsList();
+    if (this.activeTab === 'buy') {
+      this.renderBuyList();
+    } else if (this.activeTab === 'sell') {
+      await this.renderSellList();
     } else {
-      this.renderOrdersList();
+      await this.renderOrdersList();
     }
   }
 
   /**
-   * Danh sách hạt giống, phôi nung, cá giống
+   * Tab 1: Danh mục hàng hóa mua hạt giống & phôi
    */
-  private renderSeedsList() {
+  private renderBuyList() {
     const startY = 15;
-    const itemHeight = 105;
+    const itemHeight = 100;
 
+    // Hiển thị 6 loại giống tiêu biểu
     CROPS_LIST.slice(0, 6).forEach((crop, idx) => {
       const cardY = startY + idx * itemHeight;
-
       const card = this.scene.add.container(this.drawerWidth / 2, cardY);
 
-      // Thẻ bài mộc bản
-      const cardBg = this.scene.add.rectangle(0, 0, this.drawerWidth - 44, 96, DongHoHex.giayDiepDark, 0.6);
+      const cardBg = this.scene.add.rectangle(0, 0, this.drawerWidth - 44, 90, DongHoHex.giayDiepDark, 0.7);
       cardBg.setStrokeStyle(2, DongHoHex.thanDen);
 
-      // Icon tròn
-      const iconCircle = this.scene.add.circle(-265, 0, 32, DongHoHex.thanDenSoft);
+      const iconCircle = this.scene.add.circle(-265, 0, 30, DongHoHex.thanDenSoft);
       iconCircle.setStrokeStyle(1.5, DongHoHex.vangHoaHoe);
       const iconText = this.scene.add.text(-265, 0, crop.icon, { fontSize: '28px' }).setOrigin(0.5);
 
-      // Tên cây trồng / sản phẩm
-      const nameText = this.scene.add.text(-215, -26, crop.name, {
+      const nameText = this.scene.add.text(-220, -22, crop.name, {
         fontFamily: "'Playfair Display', serif",
         fontSize: '16px',
         color: DongHoColors.thanDen,
         fontStyle: 'bold'
       }).setOrigin(0, 0.5);
 
-      // Tầng phù hợp
-      const tierBadge = this.scene.add.text(-215, -4, `[${crop.tierName}]`, {
+      const durationMins = Math.round(crop.growDurationSec / 60);
+      const durationLabel = durationMins > 0 ? `${durationMins} phút` : `${crop.growDurationSec}s`;
+
+      const infoText = this.scene.add.text(-220, 4, `Giá mua: ${crop.costGold} 🪙 Vàng  •  Thời gian: ⏳ ${durationLabel}`, {
         fontFamily: "'Noto Serif', serif",
         fontSize: '12px',
         color: DongHoColors.doSonDark,
-        fontStyle: 'italic'
+        fontStyle: 'bold'
       }).setOrigin(0, 0.5);
 
-      // Chi phí & thời gian sinh trưởng
-      const infoText = this.scene.add.text(-215, 18, `Giá: ${crop.costGold} 🪙  •  Thời gian: ${Math.round(crop.growDurationSec / 60)} phút  •  Thu: ${crop.sellPriceGold} 🪙`, {
+      const yieldText = this.scene.add.text(-220, 24, `Thu hoạch: +${crop.sellPriceGold} 🪙 Vàng  +${crop.rewardFame} EXP [${crop.tierName}]`, {
         fontFamily: "'Noto Serif', serif",
-        fontSize: '12px',
+        fontSize: '11px',
         color: DongHoColors.thanDenSoft
       }).setOrigin(0, 0.5);
 
-      // Nút Chọn Gieo
       const chooseBtn = this.scene.add.container(240, 0);
-      const btnBg = this.scene.add.rectangle(0, 0, 120, 48, DongHoHex.doSon);
+      const btnBg = this.scene.add.rectangle(0, 0, 115, 44, DongHoHex.doSon);
       btnBg.setStrokeStyle(2, DongHoHex.vangHoaHoe);
       btnBg.setInteractive({ useHandCursor: true });
-
-      const btnText = this.scene.add.text(0, 0, 'CHỌN GIEO', {
+      const btnText = this.scene.add.text(0, 0, 'CHỌN GIỐNG', {
         fontFamily: "'Playfair Display', serif",
         fontSize: '12px',
         color: DongHoColors.trangXac,
         fontStyle: 'bold'
       }).setOrigin(0.5);
-
       chooseBtn.add([btnBg, btnText]);
 
       btnBg.on('pointerdown', () => {
@@ -221,44 +279,141 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
         this.close();
       });
 
-      card.add([cardBg, iconCircle, iconText, nameText, tierBadge, infoText, chooseBtn]);
+      card.add([cardBg, iconCircle, iconText, nameText, infoText, yieldText, chooseBtn]);
       this.contentContainer.add(card);
     });
   }
 
   /**
-   * Danh sách đơn hàng từ dân làng (Thị Nở, Bá Kiến, Lái Buôn)
+   * Tab 2: Bán nông sản trong kho đồ lấy Vàng Nén
    */
-  private renderOrdersList() {
+  private async renderSellList() {
+    const inventory = await GameService.getInventory();
+    const cropKeys = Object.keys(inventory).filter((k) => inventory[k] > 0);
+
+    if (cropKeys.length === 0) {
+      const emptyText = this.scene.add.text(
+        this.drawerWidth / 2,
+        180,
+        'Kho đồ trống rỗng! Hãy thu hoạch nông sản rồi mang ra tiệm bán.',
+        {
+          fontFamily: "'Noto Serif', serif",
+          fontSize: '14px',
+          color: DongHoColors.thanDenSoft,
+          fontStyle: 'italic'
+        }
+      ).setOrigin(0.5);
+      this.contentContainer.add(emptyText);
+      return;
+    }
+
+    const startY = 15;
+    const itemHeight = 100;
+
+    cropKeys.forEach((cropId, idx) => {
+      const crop = CROPS_DATA[cropId];
+      if (!crop) return;
+
+      const qty = inventory[cropId];
+      const cardY = startY + idx * itemHeight;
+      const card = this.scene.add.container(this.drawerWidth / 2, cardY);
+
+      const cardBg = this.scene.add.rectangle(0, 0, this.drawerWidth - 44, 90, DongHoHex.giayDiepDark, 0.7);
+      cardBg.setStrokeStyle(2, DongHoHex.thanDen);
+
+      const iconT = this.scene.add.text(-265, 0, crop.icon, { fontSize: '32px' }).setOrigin(0.5);
+
+      const nameT = this.scene.add.text(-220, -22, `${crop.name} (Có: ${qty} ${crop.yieldUnit})`, {
+        fontFamily: "'Playfair Display', serif",
+        fontSize: '16px',
+        color: DongHoColors.thanDen,
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+
+      const sellPriceT = this.scene.add.text(-220, 10, `Giá thu mua: ${crop.sellPriceGold} 🪙 / ${crop.yieldUnit}`, {
+        fontFamily: "'Noto Serif', serif",
+        fontSize: '13px',
+        color: DongHoColors.vangHoaHoeDark,
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+
+      // Nút Bán 1 Đơn Vị
+      const sellBtn = this.scene.add.container(240, 0);
+      const btnBg = this.scene.add.rectangle(0, 0, 115, 44, DongHoHex.vangHoaHoe);
+      btnBg.setStrokeStyle(2, DongHoHex.thanDen);
+      btnBg.setInteractive({ useHandCursor: true });
+      const btnText = this.scene.add.text(0, 0, `BÁN (+${crop.sellPriceGold} 🪙)`, {
+        fontFamily: "'Playfair Display', serif",
+        fontSize: '11px',
+        color: DongHoColors.thanDen,
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+      sellBtn.add([btnBg, btnText]);
+
+      btnBg.on('pointerdown', async () => {
+        sound.playCoinChime();
+        try {
+          const res = await GameService.sellCrop(cropId, 1);
+          this.scene.events.emit('SHOW_TOAST', `🪙 Đã bán 1 ${crop.yieldUnit} ${crop.name}, nhận +${res.earnedGold} Vàng Nén!`);
+          this.renderActiveTabContent();
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Lỗi bán hàng!';
+          this.scene.events.emit('SHOW_TOAST', `⚠️ ${msg}`);
+        }
+      });
+
+      card.add([cardBg, iconT, nameT, sellPriceT, sellBtn]);
+      this.contentContainer.add(card);
+    });
+  }
+
+  /**
+   * Tab 3: Hợp đồng thu mua đặc biệt của dân làng (Thị Nở, Chí Phèo, Bá Kiến)
+   */
+  private async renderOrdersList() {
     const orders = [
       {
-        npc: 'Thị Nở Nấu Cháo',
+        id: 'order_thino_01',
+        npc: 'Bát Cháo Hành Thị Nở',
         desc: 'Cần: 2 Nải Chuối Ngự Nam Sang',
-        reward: '+150 Vàng Nén  +35 Danh Vọng',
-        icon: '🥣'
+        costItems: [{ cropId: 'chuoi_ngu', quantity: 2 }],
+        rewardGold: 160,
+        rewardFame: 40,
+        icon: '🍲'
       },
       {
-        npc: 'Bác Chí Phèo',
-        desc: 'Cần: 5 Bụi Bèo Hoa Dâu ủ men',
-        reward: '+80 Vàng Nén  +20 Danh Vọng',
+        id: 'order_chipheo_01',
+        npc: 'Lò Than Bác Chí Phèo',
+        desc: 'Cần: 3 Bụi Bèo Hoa Dâu ủ men',
+        costItems: [{ cropId: 'beo_hoa_dau', quantity: 3 }],
+        rewardGold: 90,
+        rewardFame: 25,
         icon: '🧱'
       },
       {
-        npc: 'Bá Kiến Thu Thuế',
-        desc: 'Cần: 1 Xấp Giấy Dó Thô đóng sắc phong',
-        reward: '+600 Vàng Nén  +120 Danh Vọng',
-        icon: '📜'
+        id: 'order_bakien_01',
+        npc: 'Tiến Vua Cụ Bá Kiến',
+        desc: 'Cần: 1 Con Cá Chép Vàng Sông Đáy',
+        costItems: [{ cropId: 'ca_chep', quantity: 1 }],
+        rewardGold: 220,
+        rewardFame: 55,
+        icon: '🐟'
       }
     ];
 
+    const inventory = await GameService.getInventory();
+
     orders.forEach((order, idx) => {
-      const cardY = 30 + idx * 135;
+      const cardY = 30 + idx * 140;
       const card = this.scene.add.container(this.drawerWidth / 2, cardY);
 
-      const cardBg = this.scene.add.rectangle(0, 0, this.drawerWidth - 44, 120, DongHoHex.giayDiepDark, 0.7);
-      cardBg.setStrokeStyle(2, DongHoHex.thanDen);
+      // Kiểm tra có đủ hàng trong kho
+      const hasEnough = order.costItems.every((req) => (inventory[req.cropId] || 0) >= req.quantity);
 
-      const iconT = this.scene.add.text(-260, 0, order.icon, { fontSize: '36px' }).setOrigin(0.5);
+      const cardBg = this.scene.add.rectangle(0, 0, this.drawerWidth - 44, 120, DongHoHex.giayDiepDark, 0.75);
+      cardBg.setStrokeStyle(2, hasEnough ? DongHoHex.doSon : DongHoHex.thanDen);
+
+      const iconT = this.scene.add.text(-260, 0, order.icon, { fontSize: '38px' }).setOrigin(0.5);
 
       const npcT = this.scene.add.text(-200, -32, order.npc, {
         fontFamily: "'Playfair Display', serif",
@@ -273,7 +428,7 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
         color: DongHoColors.thanDen
       }).setOrigin(0, 0.5);
 
-      const rewardT = this.scene.add.text(-200, 24, `Phần thưởng: ${order.reward}`, {
+      const rewardT = this.scene.add.text(-200, 24, `Phần thưởng: +${order.rewardGold} 🪙 Vàng  +${order.rewardFame} Danh Vọng`, {
         fontFamily: "'Noto Serif', serif",
         fontSize: '12px',
         color: DongHoColors.doSon,
@@ -281,22 +436,35 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
       }).setOrigin(0, 0.5);
 
       const fulfillBtn = this.scene.add.container(240, 0);
-      const btnBg = this.scene.add.rectangle(0, 0, 115, 48, DongHoHex.thanDenSoft);
+      const btnBg = this.scene.add.rectangle(0, 0, 115, 48, hasEnough ? DongHoHex.doSon : DongHoHex.thanDenSoft);
       btnBg.setStrokeStyle(2, DongHoHex.vangHoaHoe);
-      btnBg.setInteractive({ useHandCursor: true });
+      btnBg.setInteractive({ useHandCursor: hasEnough });
 
-      const btnT = this.scene.add.text(0, 0, 'GIAO HÀNG', {
+      const btnT = this.scene.add.text(0, 0, hasEnough ? 'GIAO HÀNG' : 'CHƯA ĐỦ', {
         fontFamily: "'Playfair Display', serif",
         fontSize: '12px',
-        color: DongHoColors.vangHoaHoe,
+        color: hasEnough ? DongHoColors.trangXac : DongHoColors.thanDenSoft,
         fontStyle: 'bold'
       }).setOrigin(0.5);
 
       fulfillBtn.add([btnBg, btnT]);
 
-      btnBg.on('pointerdown', () => {
-        sound.playCoinChime();
-        this.scene.events.emit('SHOW_TOAST', `Đã giao hàng thành công cho ${order.npc}!`);
+      btnBg.on('pointerdown', async () => {
+        if (!hasEnough) {
+          sound.playBambooClick();
+          this.scene.events.emit('SHOW_TOAST', '⚠️ Bạn chưa tích lũy đủ nông sản để hoàn tất đơn này!');
+          return;
+        }
+
+        try {
+          sound.playCoinChime();
+          const res = await GameService.fulfillOrder(order.id, order.costItems, order.rewardGold, order.rewardFame);
+          this.scene.events.emit('SHOW_TOAST', `🎉 ${order.npc}: ${res.message}`);
+          this.renderActiveTabContent();
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Lỗi giao hàng!';
+          this.scene.events.emit('SHOW_TOAST', `⚠️ ${msg}`);
+        }
       });
 
       card.add([cardBg, iconT, npcT, descT, rewardT, fulfillBtn]);
@@ -306,6 +474,8 @@ export class StoreDrawer extends Phaser.GameObjects.Container {
 
   public open() {
     this.isOpen = true;
+    this.renderActiveTabContent();
+
     this.scene.tweens.add({
       targets: this,
       y: this.openY,

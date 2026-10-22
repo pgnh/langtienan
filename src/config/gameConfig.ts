@@ -9,7 +9,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: 'game-canvas',
   width: 720,
   height: 1280,
-  backgroundColor: DongHoHex.giayDiep,
+  backgroundColor: '#F4EBD9',
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
